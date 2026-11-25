@@ -3,7 +3,8 @@ using Services;
 
 namespace Controllers;
 
-[Route("api/v1/[controller]/[action]")]
+[ApiController]
+[Route("api/v1/[controller]")]
 public class FotbollController : ControllerBase
 {
     private readonly ILogger<FotbollController> _logger;
