@@ -1,6 +1,6 @@
 namespace Models;
 
-public class User
+public class User : IUser
 {
     public int Id { get; set; }
     public string Name { get; set; }
@@ -8,4 +8,5 @@ public class User
     public string Email { get; set; }
 
     public bool CanWrite { get; set; }
+    public IUser Author { get; set; }
 }

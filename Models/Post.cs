@@ -1,10 +1,11 @@
-namespace models;
+namespace Models;
 
-public class Post
+public class Post : IPost
 {
     public int Id { get; set; }
     public string Title { get; set; }
     public string Content { get; set; }
     public DateTime CreatedAt { get; set; }
-    public int AuthorId { get; set; }
+
+    public virtual IUser Author { get; set; }
 }
