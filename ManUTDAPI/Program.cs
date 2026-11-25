@@ -1,6 +1,30 @@
 using Scalar.AspNetCore;
+using DbContext;
+using DbContext.Extensions;
+using DbRepos;
+using Services;
+using Configuration.Extensions;
+using Microsoft.EntityFrameworkCore;
+using Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// NOTE: global cors policy needed for JS and React frontends
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(builder =>
+    {
+        builder.AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
+builder.Configuration.AddSecrets("ManUTDAPI");
+
+builder.Services.AddJwtTokenService(builder.Configuration);
+builder.Services.AddMainDbContext(builder.Configuration);
+builder.Services.AddEncryptions(builder.Configuration);
 
 // Add services to the container.
 
