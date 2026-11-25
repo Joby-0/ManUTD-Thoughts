@@ -27,6 +27,9 @@ builder.Services.AddMainDbContext(builder.Configuration);
 builder.Services.AddEncryptions(builder.Configuration);
 
 // Add services to the container.
+builder.Services.AddScoped<IFotbollService, FotbollService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<AuthRepo>();
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
