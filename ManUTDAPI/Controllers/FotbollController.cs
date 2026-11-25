@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Services;
 
 namespace Controllers;
 
@@ -6,32 +7,37 @@ namespace Controllers;
 public class FotbollController : ControllerBase
 {
     private readonly ILogger<FotbollController> _logger;
+    private readonly IFotbollService _fotbollService;
 
-    public FotbollController(ILogger<FotbollController> logger)
+    public FotbollController(ILogger<FotbollController> logger, IFotbollService fotbollService)
     {
         _logger = logger;
+        _fotbollService = fotbollService;
     }
 
     [HttpGet("/{team}/fixtures")]
-    public IActionResult GetFixtures(string team)
+    public async Task<IActionResult> GetFixtures(string team)
     {
-        return Ok("Fotboll API is running.");
+        var fixtures = await _fotbollService.GetFixturesAsync(team);
+        return Ok(fixtures);
     }
 
     [HttpGet("/{team}/results")]
-    public IActionResult GetResults(string team)
+    public async Task<IActionResult> GetResults(string team)
     {
-        return Ok("Fotboll API is running.");
+        var results = await _fotbollService.GetResultsAsync(team);
+        return Ok(results);
     }
     [HttpGet("/{team}/summary")]
-    public IActionResult GetSummary(string team)
+    public async Task<IActionResult> GetSummary(string team)
     {
-        return Ok("Fotboll API is running.");
+        var summary = await _fotbollService.GetSummaryAsync();
+        return Ok(summary);
     }
     [HttpGet("/premier-league/table")]
-    public IActionResult GetStandings()
+    public async Task<IActionResult> GetStandings()
     {
-        return Ok("Fotboll API is running.");
+        var standings = await _fotbollService.GetPremierLeagueStandingsAsync();
+        return Ok(standings);
     }
-
 }
