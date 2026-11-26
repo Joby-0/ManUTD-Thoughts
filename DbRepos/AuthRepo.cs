@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 using Configuration;
 using DbContext;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Models.DTOs;
 using MySqlConnector;
@@ -24,14 +25,15 @@ public class AuthRepo
         {
             //Notice how I use the efc Command to call sp as I do not return any dataset, only output parameters
             //Notice also how I encrypt the password, no coms to database with open password
-            cmd1.CommandType = CommandType.StoredProcedure;
+           
 
             // Create parameters based on database provider
             DbParameter userNameParam, userPasswordParam, userIdParam, userNameOutParam, userRoleParam;
             var connection = _dbContext.Database.GetDbConnection();
 
-            // if (connection is MySqlConnection)
-            // {
+            if (connection is MySqlConnection)
+            {
+                 cmd1.CommandType = CommandType.StoredProcedure;
                 cmd1.CommandText = "gstusr_spLogin";
 
                 // MySQL parameters
@@ -40,7 +42,7 @@ public class AuthRepo
                 userIdParam = new MySqlParameter("UserId", MySqlDbType.Guid) { Direction = ParameterDirection.Output };
                 userNameOutParam = new MySqlParameter("UserName", MySqlDbType.VarChar, 100) { Direction = ParameterDirection.Output };
                 userRoleParam = new MySqlParameter("UserRole", MySqlDbType.VarChar, 100) { Direction = ParameterDirection.Output };
-            // }
+            }
             // else if (connection is NpgsqlConnection)
             // {
             //     cmd1.CommandText = "SELECT userid, username, userrole FROM gstusr.\"spLogin\"(@usernameoremail, @userpassword)";
@@ -53,6 +55,26 @@ public class AuthRepo
             //     userNameOutParam = new NpgsqlParameter("username", NpgsqlTypes.NpgsqlDbType.Varchar, 100) { Direction = ParameterDirection.Output };
             //     userRoleParam = new NpgsqlParameter("userrole", NpgsqlTypes.NpgsqlDbType.Varchar, 100) { Direction = ParameterDirection.Output };
             // }
+            else
+            {
+                cmd1.CommandText = @"
+                SELECT UserId, UserName, UserRole
+                FROM Users
+                WHERE (UserName = @UserNameOrEmail OR Email = @UserNameOrEmail)
+                AND UserPassword = @UserPassword
+                LIMIT 1";
+
+                cmd1.CommandType = CommandType.Text;
+
+                userNameParam = new SqliteParameter("@UserNameOrEmail", usrCreds.UserNameOrEmail);
+                userPasswordParam = new SqliteParameter("@UserPassword",
+                    _encryptions.EncryptPasswordToBase64(usrCreds.Password));
+
+                // SQLite doesn't use output parameters
+                userIdParam = null;
+                userNameOutParam = null;
+                userRoleParam = null;
+            }
             // else
             // {
             //     cmd1.CommandText = "gstusr.spLogin";
@@ -92,23 +114,24 @@ public class AuthRepo
     {
         using (var cmd = _dbContext.Database.GetDbConnection().CreateCommand())
         {
-            cmd.CommandType = CommandType.StoredProcedure;
-
-            DbParameter userNameParam, emailParam, passwordParam;
-            DbParameter firstNameParam, lastNameParam, userIdOutParam;
-
             var connection = _dbContext.Database.GetDbConnection();
 
-            // if (connection is MySqlConnection)
-            // {
+            
+
+            DbParameter userNameParam, emailParam, passwordParam;
+            DbParameter firstNameParam, lastNameParam, userIdOutParam = null;
+
+            if (connection is MySqlConnection)
+            {
+                cmd.CommandType = CommandType.StoredProcedure;
                 cmd.CommandText = "gstusr_spRegister";
 
                 userNameParam = new MySqlParameter("UserName", request.UserName);
                 emailParam = new MySqlParameter("Email", request.Email);
                 passwordParam = new MySqlParameter(
                     "Password",
-                    _encryptions.EncryptPasswordToBase64(request.Password)
-                );
+                    _encryptions.EncryptPasswordToBase64(request.Password));
+
                 firstNameParam = new MySqlParameter("FirstName", request.FirstName);
                 lastNameParam = new MySqlParameter("LastName", request.LastName);
 
@@ -116,35 +139,37 @@ public class AuthRepo
                 {
                     Direction = ParameterDirection.Output
                 };
-            // }
-            // else if (connection is NpgsqlConnection)
-            // {
-            //     cmd.CommandText = "SELECT gstusr.\"spRegister\"(@username, @email, @password, @firstname, @lastname)";
+            }
+            else 
+            {
+                cmd.CommandType = CommandType.Text;
 
-            //     cmd.CommandType = CommandType.Text;
+                cmd.CommandText = @"
+                INSERT INTO Users
+                    (UserName, Email, UserPassword, FirstName, LastName)
+                VALUES
+                    (@UserName, @Email, @Password, @FirstName, @LastName);
+            ";
 
-            //     userNameParam = new NpgsqlParameter("username", request.UserName);
-            //     emailParam = new NpgsqlParameter("email", request.Email);
-            //     passwordParam = new NpgsqlParameter(
-            //         "password",
-            //         _encryptions.EncryptPasswordToBase64(request.Password)
-            //     );
-            //     firstNameParam = new NpgsqlParameter("firstname", request.FirstName);
-            //     lastNameParam = new NpgsqlParameter("lastname", request.LastName);
+                userNameParam = new SqliteParameter("@UserName", request.UserName);
+                emailParam = new SqliteParameter("@Email", request.Email);
+                passwordParam = new SqliteParameter(
+                    "@Password",
+                    _encryptions.EncryptPasswordToBase64(request.Password));
 
-            //     userIdOutParam = new NpgsqlParameter("userid", NpgsqlTypes.NpgsqlDbType.Uuid)
-            //     {
-            //         Direction = ParameterDirection.Output
-            //     };
-            // }
+                firstNameParam = new SqliteParameter("@FirstName", request.FirstName);
+                lastNameParam = new SqliteParameter("@LastName", request.LastName);
+            }
             // else
             // {
-            //     // SQL Server
             //     cmd.CommandText = "gstusr.spRegister";
 
             //     userNameParam = new SqlParameter("UserName", request.UserName);
             //     emailParam = new SqlParameter("Email", request.Email);
-            //     passwordParam = new SqlParameter("Password", _encryptions.EncryptPasswordToBase64(request.Password));
+            //     passwordParam = new SqlParameter(
+            //         "Password",
+            //         _encryptions.EncryptPasswordToBase64(request.Password));
+
             //     firstNameParam = new SqlParameter("FirstName", request.FirstName);
             //     lastNameParam = new SqlParameter("LastName", request.LastName);
 
@@ -160,15 +185,21 @@ public class AuthRepo
             cmd.Parameters.Add(firstNameParam);
             cmd.Parameters.Add(lastNameParam);
 
-            int userIdIdx = cmd.Parameters.Add(userIdOutParam);
+            if (userIdOutParam != null)
+                cmd.Parameters.Add(userIdOutParam);
 
             if (connection.State != ConnectionState.Open)
                 await _dbContext.Database.OpenConnectionAsync();
 
-            await cmd.ExecuteScalarAsync();
-
-            return  new RegisterResponse { Success = true };
-            
+            try
+            {
+                await cmd.ExecuteNonQueryAsync();
+                return new RegisterResponse { Success = true };
+            }
+            finally
+            {
+                await _dbContext.Database.CloseConnectionAsync();
+            }
         }
     }
 }
